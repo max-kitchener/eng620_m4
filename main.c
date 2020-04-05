@@ -400,7 +400,7 @@ void count_task(int side)
 
   // Read and reset sensors
   sensorVal = readCountSensor(side);
-  readCountSensor(side);
+  resetCountSensor(side);
 
   // Increment collected count when a block is detected
   if(sensorVal == COUNT_BLOCK)
@@ -431,7 +431,7 @@ void gate_task(int side)
   // close gate(s)
   setGates(gateVal);
   //Wait for block to be pushed off
-  //sleep(GATE_CLOSE);
+  sleep(GATE_CLOSE);
   //Open gates
   setGates(GATE_OPEN);
 }
