@@ -27,16 +27,16 @@ CFLAGS ?= $(INC_FLAGS) -MMD -MP -Wall -I. -Itarget_h -iquote -D_GNU_SOURCE -D_RE
 
 # .exe build target
 $(TARGET_EXEC): $(OBJS)
-	$(CC) $(OBJS) -o $@ $(LDFLAGS)
+	$(CC) $(OBJS) -o $@ $(LDFLAGS)-lpthread -lrt
 
 # generate object files for each source file
 $(BUILD_DIR)/%.o: $(SRC_DIRS)/%.c $(INCS)
 	$(MKDIR_P) $(dir $@)
-	$(CC) $(CFLAGS) -c $< -o $@ -L. -lv2lin -lpthread
+	$(CC) $(CFLAGS) -c $< -o $@  -lpthread -lrt
 
 # builds a.out file for debugging
 debug: $(OBJS)
-	$(CC) $(OBJS) -g -o $(BUILD_DIR)/$(TARGET_OUT) $(LDFLAGS)
+	$(CC) $(OBJS) -g -o $(BUILD_DIR)/$(TARGET_OUT) $(LDFLAGS) -lpthread -lrt
 
 # build and runs executable
 run: $(TARGET_EXEC)
