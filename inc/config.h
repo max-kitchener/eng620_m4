@@ -32,11 +32,6 @@
 #define LEFT 1
 #define RIGHT 0
 
-#define BIG 1
-#define SMALL 2
-#define COLLECTED 3
-#define ALL 4
-
 #define MOTOR_OFF 0
 #define MOTOR_ON  1
 
@@ -64,11 +59,7 @@ typedef struct
 
 extern counter_t counter;
 
-/* USER INTERFACE */
-#define UI_STRING_LENGTH 50
-#define UI_MAIN_ITEMS    6
-#define UI_COUNTER_ITEMS 6
-#define UI_CONV_ITEMS    5
+
 
 
 #endif

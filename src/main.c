@@ -37,12 +37,26 @@ SEM_ID test;
 
 counter_t counters;
 
+menu_t menuLevel;
+
+enum Tasks
+{
+  UI_TASK,
+  L_SIZE_TASK,
+  R_SIZE_TASK,
+  L_COUNT_TASK,
+  R_COUNT_TASK,
+  GATE_TASK,
+  NUM_TASKS
+}
+
 
 // Task function
 void conveyor_sim(void);
-int size_task(int side);
-void count_task(int side);
-void gate_task(int side);
+int task_ui(void);
+int task_size(int side);
+void task_count(int side);
+void task_gate(int side);
 
 
 
@@ -73,7 +87,7 @@ int main(void)
   while (shutdown == FALSE)
   {
 
-    if(ui_task() == TRUE)
+    if(task_ui() == TRUE)
     {
       conveyor_sim();
     }
@@ -132,7 +146,7 @@ void conveyor_sim (void)
     }
 
     //Detect the size of the block
-    size = size_task(side);
+    size = task_size(side);
 
     //Process block according to size
     if(size == SIZE_BIG)
@@ -140,14 +154,14 @@ void conveyor_sim (void)
       //Wait for block to reach count sensor
       //sleep(COUNT_DELAY);
       //Count collected block
-      count_task(side);
+      task_count(side);
     }
     else if( size == SIZE_SMALL)
     {
       //Wait for block to reach gate
       //sleep(GATE_DELAY);
       //Close the gate for a period then open again
-      gate_task(side);
+      task_gate(side);
     }
     //sleep(2);
   }
@@ -159,7 +173,7 @@ void conveyor_sim (void)
  * @param side  - which conveyor to check
  * @return int  - SIZE_NONE, SIZE_SMALL or SIZE_BIG
  */
-int size_task(int side)
+int task_size(int side)
 {
   int sensorVal;
   int returnVal = 0;
@@ -189,7 +203,7 @@ int size_task(int side)
  *
  * @param side - which conveyor to check, LEFT or RIGHT
  */
-void count_task(int side)
+void task_count(int side)
 {
   int sensorVal;
 
@@ -210,7 +224,7 @@ void count_task(int side)
  *
  * @param side - Which conveyor to sort, LEFT or RIGHT
  */
-void gate_task(int side)
+void task_gate(int side)
 {
   int gateVal;
 
@@ -228,8 +242,90 @@ void gate_task(int side)
   debug_printf("Gate state : %s\n", gateString[gateVal]);
   setGates(gateVal);
   //Wait for block to be pushed off
-  sleep(GATE_CLOSE);
+  //sleep(GATE_CLOSE);
   //Open gates
   debug_printf("Gate state : %s\n", gateString[gateVal]);
   setGates(GATE_OPEN);
+}
+
+int task_ui(void)
+{
+  static int ctr;
+  static int cnv;
+
+    //state machine dependant on menu level
+    switch (menuLevel)
+    {
+    //Top level of menu, should default to here
+    case TOP:
+
+      ui_printf(uiMainMenu, UI_MAIN_ITEMS);
+
+      menuLevel = ui_main(ui_input());
+      break;
+
+    // Enters and exits debug mode
+    // TODO stop running ui when in debug?
+    case DEBUG:
+      if (debug == TRUE)
+      {
+        debug = FALSE;
+        printf("\nExiting debug mode\n");
+      }
+      else
+      {
+        debug = TRUE;
+        printf("\nEntering debug mode\n");
+      }
+      menuLevel = TOP;
+      break;
+
+    //User has requested counter values
+    case COUNTERS:
+      ui_printf(uiCounterMenu, UI_MAIN_ITEMS);
+      ctr = ui_input();
+      menuLevel = COUNTERS_CONV;
+      break;
+
+    //Decides which conveyor to print value for
+    case COUNTERS_CONV:
+      ui_printf(uiConveyorMenu, UI_MAIN_ITEMS);
+      cnv = ui_input();
+      ui_counter(ctr, cnv);
+      menuLevel = TOP;
+      //sleep(3);
+      break;
+
+    case RESET:
+      ui_printf(uiCounterMenu, UI_MAIN_ITEMS);
+      ctr = ui_input();
+      menuLevel = RESET_CONV;
+      break;
+
+    case RESET_CONV:
+      ui_printf(uiConveyorMenu, UI_MAIN_ITEMS);
+      cnv = ui_input();
+      ui_reset(ctr, cnv);
+      menuLevel = TOP;
+      //sleep(3);
+      break;
+
+    case SHUTDOWN:
+      printf("Shutting down\n");
+      shutdown = TRUE;
+      break;
+
+    default:
+      printf("Invalid input\n");
+      menuLevel = TOP;
+      break;
+    }
+    if(menuLevel == TOP)
+    {
+      return TRUE;
+    }
+    else
+    {
+      return FALSE;
+    }
 }

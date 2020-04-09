@@ -1,3 +1,4 @@
+# don't include output files as these can be regenerated
 *.out
 *.d
 *.o

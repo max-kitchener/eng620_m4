@@ -16,6 +16,9 @@
 #include "../inc/config.h"
 #include "../inc/ui.h"
 
+
+
+
 //Menu strings
 const char uiMainMenu[UI_MAIN_ITEMS][UI_STRING_LENGTH] = {
   {"\n\nMain menu, choose an option (1-4):\n"},
@@ -38,110 +41,14 @@ const char uiCounterMenu[UI_COUNTER_ITEMS][UI_STRING_LENGTH] = {
 const char uiConveyorMenu[UI_CONV_ITEMS][UI_STRING_LENGTH] = {
   {"\n\nWhich conveyor(s)? (1-3):\n"},
   {"------------------------------------\n"},
-  {"[1] Left Conveyer\n"},
-  {"[2] Right Conveyor\n"},
+  {"[1] Right Conveyor\n"},
+  {"[2] Left Conveyer\n"},
   {"[3] Both Conveyors\n"},
 };
-
-//Used for indicating which menu is active
-enum
-{
-  TOP,
-  COUNTERS,
-  COUNTERS_CONV,
-  RESET,
-  RESET_CONV,
-  SHUTDOWN,
-  DEBUG
-} menuLevel;
 
 extern int shutdown;
 extern int debug;
 extern counter_t counters;
-
-int ui_task(void)
-{
-  static int ctr;
-  static int cnv;
-
-    //state machine dependant on menu level
-    switch (menuLevel)
-    {
-    //Top level of menu, should default to here
-    case TOP:
-
-      ui_printf(uiMainMenu, UI_MAIN_ITEMS);
-
-      ui_main(user_input());
-      break;
-
-    //Decides which conveyor to print value for
-    case DEBUG:
-      if (debug == TRUE)
-      {
-        debug = FALSE;
-        printf("\nExiting debug mode\n");
-      }
-      else
-      {
-        debug = TRUE;
-        printf("\nEntering debug mode\n");
-      }
-      menuLevel = TOP;
-      break;
-    
-    //User has requested counter values
-    case COUNTERS:
-      ui_printf(uiCounterMenu, UI_MAIN_ITEMS);
-      ctr = user_input();
-      menuLevel = COUNTERS_CONV;
-      break;
-
-    //Decides which conveyor to print value for
-    case COUNTERS_CONV:
-      ui_printf(uiConveyorMenu, UI_MAIN_ITEMS);
-      cnv = user_input();
-      ui_counter(ctr, cnv);
-      menuLevel = TOP;
-      sleep(3);
-      break;
-
-    case RESET:
-      ui_printf(uiCounterMenu, UI_MAIN_ITEMS);
-      ctr = user_input();
-      menuLevel = RESET_CONV;
-      break;
-
-    case RESET_CONV:
-      ui_printf(uiConveyorMenu, UI_MAIN_ITEMS);
-      cnv = user_input();
-      ui_reset(ctr, cnv);
-      menuLevel = TOP;
-      sleep(3);
-      break;
-
-    case SHUTDOWN:
-      printf("Shutting down\n");
-      shutdown = TRUE;
-      break;
-
-    default:
-      printf("Invalid input\n");
-      menuLevel = TOP;
-      break;
-    }
-    if(menuLevel == TOP)
-    {
-      return TRUE;
-    }
-    else
-    {
-      return FALSE;
-    }
-}
-
-
-
 
 /**
  * @brief prints all options for the ui menu menuArray
@@ -159,37 +66,40 @@ void ui_printf(const char menuArray[][UI_STRING_LENGTH], int numOptions)
   }
 }
 
+
 /**
- * @brief prints all options for the ui menu menuArray
+ * @brief Handles user inputs for the main menu and returns the next menu level
  *
- * @param menuArray  pointer to array of strings for menu options
- * @param numOptions  number of options in menuArray
+ * @param input user value
+ * @return menu_t next menu level to display
  */
-void ui_main(int menuSelect)
+menu_t ui_main(int input)
 {
-  switch (menuSelect)
+  menu_t nxtMenu;
+  switch (input)
   {
   case 1:
-    menuLevel = DEBUG;
+    nxtMenu = DEBUG;
     break;
 
   case 2:
-    menuLevel = COUNTERS;
+    nxtMenu = COUNTERS;
     break;
 
   case 3:
-    menuLevel = RESET;
+    nxtMenu = RESET;
     break;
 
   case 4:
-    menuLevel = SHUTDOWN;
+    nxtMenu = SHUTDOWN;
     break;
 
   default:
     printf("Invalid input\n");
-    menuLevel = TOP;
+    nxtMenu = TOP;
     break;
   }
+  return nxtMenu;
 }
 
 /**
@@ -203,7 +113,7 @@ void ui_counter(int ctr, int cnv)
   int side;
   for ( side = 0; side < 2; side++)
   {
-    if(cnv && (side+1))
+    if(cnv & (side+1))
     {
       printf("%s conveyor:\n", sideString[side]);
       if(ctr == SMALL || ctr == ALL)
@@ -218,7 +128,7 @@ void ui_counter(int ctr, int cnv)
       {
         printf("%d blocks collected\n", counters.collected[side]);
       }
-      sleep(1);
+      //sleep(1);
     }
   }
 }
@@ -236,7 +146,7 @@ void ui_reset(int ctr, int cnv)
   for ( side = 0; side < 2; side++)
   {
     if(cnv && (side+1))
-      {
+    {
       printf("%s conveyor:\n", sideString[side]);
       if(ctr == SMALL || ctr == ALL)
       {
@@ -253,7 +163,7 @@ void ui_reset(int ctr, int cnv)
         counters.collected[side]=0;
         printf("Reset collected count\n");
       }
-      sleep(1);
+      //sleep(1);
     }
   }
 }
@@ -264,7 +174,7 @@ void ui_reset(int ctr, int cnv)
  *
  * @return int returns int value of user input
  */
-int user_input(void)
+int ui_input(void)
 {
   int len = 3;
   int val = 0;
