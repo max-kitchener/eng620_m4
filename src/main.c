@@ -14,8 +14,9 @@
 #include <stdarg.h>
 #include <time.h>
 #include <unistd.h>
-#include <pthread.h>git
+#include <pthread.h>
 #include <semaphore.h>
+#include <stdbool.h>
 
 // Project files
 #include "../inc/config.h"
@@ -23,9 +24,9 @@
 #include "../inc/ui.h"
 
 //global variables
-int calibration = FALSE;
-int shutdown = FALSE;
-int debug = FALSE;
+bool calibration = FALSE;
+bool shutdown = FALSE;
+bool debug = FALSE;
 int gate = GATE_OPEN;
 
 // strings used for debug messages
@@ -67,6 +68,8 @@ struct
   double count[2];
   double gate[2];
   double ui;
+  double count_sensor;
+  double gate_shut;
 }delay;
 
 // structure used to hold count values for big small and colected blocks
@@ -83,7 +86,7 @@ void *task_gate(void *arg);
 
 // function prototypes
 void debug_printf(char *dbgMessage, ...);
-void close_threads(void);
+void conveyor_shutdown(void);
 void calibrate(void);
 double execution_time(void*(*func)(void *), void  *arg);
 /**
@@ -130,7 +133,7 @@ int main(void)
   }
 
   stopMotor();
-  close_threads();
+  conveyor_shutdown();
 
   return EXIT_SUCCESS;
 }
@@ -194,7 +197,7 @@ void *task_count(void *arg)
   while (TRUE)
   {
     sem_wait(&sem[R_COUNT_SEM + side]);
-    //sleep(3);
+    sleep(delay.count_sensor);
     // Read and reset sensors
     sensorVal = readCountSensor(side);
     resetCountSensor(side);
@@ -253,7 +256,7 @@ void *task_gate(void *arg)
     debug_printf("Gate state : %s\n", gateString[gate]);
     setGates(GATE_CLOSED_BOTH);
     //Wait for block to be pushed off
-    sleep(2);
+    sleep(delay.gate_shut);
     // Set gate to close to match side
     if (side == LEFT)
     {
@@ -388,7 +391,11 @@ void debug_printf(char *dbgMessage, ...)
   }
 }
 
-void close_threads(void)
+/**
+ * @brief
+ *
+ */
+void conveyor_shutdown(void)
 {
   //close all open threads
   for (int tsk = 0; tsk < NUM_TASKS; tsk++)
@@ -403,42 +410,54 @@ void close_threads(void)
   }
 }
 
+/**
+ * @brief calibration routine, should run on startup. Calculates execution
+ *        time of tasks when debug mode is off and on
+ *
+ */
 void calibrate(void)
 {
   calibration = TRUE;
   debug = FALSE;
 
-  printf("Execution time\n");
 
-  sem_post(&sem[R_COUNT_SEM]);
-  delay.count[0] = execution_time(task_count, 0);
-  printf("count task = %f\n\n", delay.count[0]);
+  char dbgString[][4] = {"off", "on"};
 
-  delay.size[0]  = execution_time(task_size, 0);
-  printf("size task = %f\n\n", delay.size[0]);
+  // calculate execution time of tasks
+  for (int i = 0; i < 2; i++)
+  {
 
-  sem_post(&sem[R_GATE_SEM]);
-  delay.gate[0]  = execution_time(task_gate, 0);
-  printf("gate task = %f\n\n", delay.gate[0]);
+    sem_post(&sem[R_COUNT_SEM]);
+    delay.count[debug] = execution_time(task_count, 0);
 
-  debug = TRUE;
+    delay.size[debug]  = execution_time(task_size, 0);
 
-  printf("Execution time in debug mode\n");
-  sem_post(&sem[R_COUNT_SEM]);
-  delay.count[1] = execution_time(task_count, 0);
-  printf("count task time = %f\n\n", delay.count[1]);
+    sem_post(&sem[R_GATE_SEM]);
+    delay.gate[debug]  = execution_time(task_gate, 0);
 
-  delay.size[1]  = execution_time(task_size, 0);
-  printf("size task time = %f\n\n", delay.size[1]);
+    printf("\n\nExecution time, debug %s\n", dbgString[debug]);
+    printf("count task = %f\n", delay.count[debug]);
+    printf("size task = %f\n", delay.size[debug]);
+    printf("gate task = %f\n\n", delay.gate[debug]);
+    debug = !debug;
+  }
 
-  sem_post(&sem[R_GATE_SEM]);
-  delay.gate[1]  = execution_time(task_gate, 0);
-  printf("gate task time = %f\n\n", delay.gate[1]);
 
-  debug = FALSE;
+  calculate_delay();
+
+  printf("\nCalibration complete!\n\n\n");
+
   calibration = FALSE;
 }
 
+
+/**
+ * @brief
+ *
+ * @param func
+ * @param arg
+ * @return double
+ */
 double execution_time(void*(*func)(void *), void  *arg)
 {
   double exec_tim = 0.0;
@@ -454,4 +473,44 @@ double execution_time(void*(*func)(void *), void  *arg)
   //printf("execution time = %f\n", exec_tim);
 
   return exec_tim;
+}
+
+
+void calculate_delay()
+{
+  clock_t start;
+  clock_t stop;
+
+  int sensorval = SIZE_NONE;
+  printf("Place large block on conveyor\n");
+
+  sleep(1);
+
+  while(sensorval != SIZE_BIG)
+  {
+    sensorval = readSizeSensors(RIGHT);
+    resetSizeSensors(RIGHT);
+  }
+  printf("Block detected\n");
+
+  start = time(NULL);
+  int rnd = rand() % 10;
+  printf("rand = %i\n", rnd);
+  sleep(rnd);
+
+  sensorval = COUNT_NONE;
+
+  while(sensorval != COUNT_BLOCK)
+  {
+    sensorval = readCountSensor(RIGHT);
+    readCountSensor(RIGHT);
+  }
+  stop = time(NULL);
+  printf("Block collected\n");
+
+
+  delay.count_sensor = (double)(stop-start);
+  delay.gate_shut = delay.count_sensor * 0.8;
+
+  printf("count delay : %f\n gate delay : %f\n",delay.count_sensor,delay.gate_shut);
 }
