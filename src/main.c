@@ -61,7 +61,7 @@ enum Tasks
 // array to store task ids
 pthread_t task[NUM_TASKS];
 
-
+// structure for storing the execution time of
 struct
 {
   double size[2];
@@ -72,22 +72,23 @@ struct
   double gate_shut;
 }delay;
 
-// structure used to hold count values for big small and colected blocks
+// structure used to hold count values for big small and collected blocks
 counter_t counters;
 
 // holds the current level of user interface menu
 menu_t menuLevel;
 
 // Task function prototypes
-void *task_ui(void *arg);
-void *task_size(void *arg);
 void *task_count(void *args);
 void *task_gate(void *arg);
+void *task_size(void *arg);
+void *task_ui(void *arg);
 
 // function prototypes
-void debug_printf(char *dbgMessage, ...);
-void conveyor_shutdown(void);
+void calculate_delay(void);
 void calibrate(void);
+void conveyor_shutdown(void);
+void debug_printf(char *dbgMessage, ...);
 double execution_time(void*(*func)(void *), void  *arg);
 /**
  * @brief main function for conveyor belt simulation
@@ -292,6 +293,10 @@ void *task_gate(void *arg)
   return NULL;
 }
 
+/**
+ * @brief task for running the user interface for the conveyor belt
+ *
+ */
 void *task_ui(void *arg)
 {
   static int ctr;
@@ -452,11 +457,14 @@ void calibrate(void)
 
 
 /**
- * @brief
+ * @brief calculate the execution time for a function.
+ *        the calculated value is based on the number
+ *        of clock cycles and ignores sleep() delays.
  *
- * @param func
- * @param arg
- * @return double
+ * @param func pointer to function to run
+ * @param arg argument(if any) for func
+ *
+ * @return calculated execution time
  */
 double execution_time(void*(*func)(void *), void  *arg)
 {
@@ -475,42 +483,54 @@ double execution_time(void*(*func)(void *), void  *arg)
   return exec_tim;
 }
 
-
+/**
+ * @brief This function calculates the time taken for a
+ *        big block to go from the size sensor to the
+ *        count sensor
+ */
 void calculate_delay()
 {
   clock_t start;
   clock_t stop;
 
   int sensorval = SIZE_NONE;
+  int rnd = 0;
+
   printf("Place large block on conveyor\n");
 
   sleep(1);
 
+  // wait for large block to be detected
   while(sensorval != SIZE_BIG)
   {
     sensorval = readSizeSensors(RIGHT);
     resetSizeSensors(RIGHT);
   }
+
+  // take start time
+  start = time(NULL);
   printf("Block detected\n");
 
-  start = time(NULL);
-  int rnd = rand() % 10;
+
+  // delay for randomly generated number of seconds
+  rnd = rand() % 10;
   printf("rand = %i\n", rnd);
   sleep(rnd);
 
+  // wait for a block to be detected by count sensor
   sensorval = COUNT_NONE;
-
   while(sensorval != COUNT_BLOCK)
   {
     sensorval = readCountSensor(RIGHT);
-    readCountSensor(RIGHT);
+    resetCountSensor(RIGHT);
   }
+
+  // take stop time
   stop = time(NULL);
   printf("Block collected\n");
 
-
+  //calculate time between size sensor, and the count sensor and gate
   delay.count_sensor = (double)(stop-start);
   delay.gate_shut = delay.count_sensor * 0.8;
-
   printf("count delay : %f\n gate delay : %f\n",delay.count_sensor,delay.gate_shut);
 }

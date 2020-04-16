@@ -122,7 +122,7 @@ void setGates(char state)
   // To remove warnings
   int stt = state;
 
-  gate = state;
+  gate = stt;
 
 }
 
